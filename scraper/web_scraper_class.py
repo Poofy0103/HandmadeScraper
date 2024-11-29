@@ -1,25 +1,30 @@
 from abc import ABC, abstractmethod
-from scraper_base_class import BaseScraper
+from .scraper_base_class import PyppeteerBaseScraper, PlaywrightBaseScraper
 
-class WebsiteScraper(ABC, BaseScraper):
+class WebsitePyppetScraper(ABC, PyppeteerBaseScraper):
     @abstractmethod
-    def sign_in(self, username, password):
+    async def sign_in(self, username, password):
         pass
 
     @abstractmethod
-    def search_product(self, product_name):
+    async def search_product(self, product_name):
         pass
 
     @abstractmethod
-    def get_all_products_links(self):
+    async def get_all_products_links(self):
         pass
-    
+
+class WebsitePWrightScraper(ABC, PlaywrightBaseScraper):
     @abstractmethod
-    def get_product_detail(self, href):
+    async def sign_in(self, username, password):
         pass
 
     @abstractmethod
-    def parse_data(self):
+    async def search_product(self, product_name):
+        pass
+
+    @abstractmethod
+    async def get_all_products_links(self):
         pass
 
     
