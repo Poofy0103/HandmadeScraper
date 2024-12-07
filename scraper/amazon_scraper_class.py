@@ -12,7 +12,7 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
     productLinks = []
     isNextProduct = False
 
-    def __init__(self, productNames: list, hasSignIn = False, account=dict(username=None, apple=None), homepage="https://amazon.com", headless=False, proxy=None):
+    def __init__(self, productNames: list, homepage, hasSignIn = False, account=dict(username=None, apple=None), headless=False, proxy=None):
         super().__init__(headless, proxy)
         self.homepage = homepage
         self.account = account
@@ -43,7 +43,7 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
         return page
 
     
-    async def search_product(self, productName):
+    async def search_product(self, productName) -> Page:
         """Search for a product."""
         if self.has_sign_in and not self.isNextProduct:
             page = await self.sign_in(self.account["username"], self.account["password"])
@@ -52,8 +52,7 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
         else:
             page = await self.initialize_page(self.homepage)
         await PlaywrightUtils.wait_for_element(page, "#twotabsearchtextbox")
-        searchBar = page.locator("#twotabsearchtextbox")
-        await searchBar.fill("")
+        await page.locator("#twotabsearchtextbox").fill("", timeout=15000)
         await PlaywrightUtils.type_like_human(page, "#twotabsearchtextbox", productName)
         await page.keyboard.press("Enter")
         await PlaywrightUtils.wait_for_page_load(page)
