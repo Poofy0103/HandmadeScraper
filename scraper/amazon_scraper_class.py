@@ -1,16 +1,18 @@
 from .web_scraper_class import WebsitePyppetScraper, WebsitePWrightScraper
 from common.pyppeteer_utils import PyppeteerUtils
 from common.playwright_utils import PlaywrightUtils
+from common.utils import pool_handler
 from playwright.async_api import async_playwright, Page, Browser
 import asyncio
 from pyppeteer import launch, browser, page
-import os
-import time
+from typing import List
 from multiprocessing import Pool
 
 class AmazonPWrightScraper(WebsitePWrightScraper):
     productLinks = []
+    product_page = []
     isNextProduct = False
+    condition = asyncio.Condition()
 
     def __init__(self, productNames: list, homepage, hasSignIn = False, account=dict(username=None, apple=None), headless=False, proxy=None):
         super().__init__(headless, proxy)
@@ -21,7 +23,8 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
 
     async def init_environment(self) -> Page:
         await self.initialize_browser()
-        page = await self.initialize_page(self.homepage)
+        self.main_context = await self.open_browser_session()
+        page = await self.initialize_page(self.main_context, self.homepage)
         return page
 
     async def sign_in(self, username, password) -> Page:
@@ -70,6 +73,11 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
             links = await elems.evaluate_all("elements => elements.map(e => e.href)")
             self.productLinks.extend(links)
             print(f"Collected {len(self.productLinks)} product links.")
+            print('Task sending notification...')
+            async with self.condition:
+                self.condition.notify()
+            
+            self.scrape_multiple_sources()
 
             # Attempt to navigate to the next page
             
@@ -82,10 +90,31 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
         await page.close()
         self.isNextProduct = True
 
-    
+    async def scrape_html_source(self, product_page, name, semaphore):
+        async with semaphore:
+            page = await self.initialize_page(self.main_context, product_page)
+            html = await page.content()
+            with open(f'download/{name}.html', 'wb+') as f:
+                f.write(html.encode())
+            await page.close()
+
+    async def scrape_multiple_sources(self):
+        # Initialize Playwright and create a single browser and context
+        async with self.condition:
+            # wait to be notified
+            await self.condition.wait()
+        tasks = []
+        semaphore = asyncio.Semaphore(2)
+        for index, page_link in enumerate(self.productLinks):
+            # Pass the shared context to each task
+            tasks.append(self.scrape_html_source(page_link, index, semaphore))
+        self.productLinks.clear()
+        # Run all tasks concurrently
+        await asyncio.gather(*tasks)
+        
     async def activate_scraper(self):
         for product in self.productNames:
-            await self.get_all_products_links(product)
+            await asyncio.gather(self.get_all_products_links(product), self.scrape_multiple_sources())
             
     
 
