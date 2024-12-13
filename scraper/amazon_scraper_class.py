@@ -1,25 +1,32 @@
 from .web_scraper_class import WebsitePyppetScraper, WebsitePWrightScraper
+from datamodel.model import ListTasks
 from common.pyppeteer_utils import PyppeteerUtils
 from common.playwright_utils import PlaywrightUtils
-from common.utils import pool_handler
 from playwright.async_api import async_playwright, Page, Browser
 import asyncio
 from pyppeteer import launch, browser, page
 from typing import List
 from multiprocessing import Pool
+import uuid
+from common.utils import AsyncioManager
+import datetime
+import time
 
 class AmazonPWrightScraper(WebsitePWrightScraper):
-    productLinks = []
+    productLinks: List[ListTasks] = []
     product_page = []
     isNextProduct = False
     condition = asyncio.Condition()
+
 
     def __init__(self, productNames: list, homepage, hasSignIn = False, account=dict(username=None, apple=None), headless=False, proxy=None):
         super().__init__(headless, proxy)
         self.homepage = homepage
         self.account = account
         self.productNames = productNames
-        self.has_sign_in = hasSignIn
+        self.hasSignIn = hasSignIn
+        self.semaphore = asyncio.Semaphore(4)
+        self.asyncManager = AsyncioManager(5)
 
     async def init_environment(self) -> Page:
         await self.initialize_browser()
@@ -48,9 +55,9 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
     
     async def search_product(self, productName) -> Page:
         """Search for a product."""
-        if self.has_sign_in and not self.isNextProduct:
+        if self.hasSignIn and not self.isNextProduct:
             page = await self.sign_in(self.account["username"], self.account["password"])
-        elif not self.has_sign_in and not self.isNextProduct:
+        elif not self.hasSignIn and not self.isNextProduct:
             page = await self.init_environment()
         else:
             page = await self.initialize_page(self.homepage)
@@ -61,33 +68,44 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
         await PlaywrightUtils.wait_for_page_load(page)
         return page
     
-    async def get_all_products_links(self, productName):
+    async def get_all_products_links(self, productName: str):
         """Get all product links."""
         page = await self.search_product(productName)
+        pageNo = 1
+        countLink = 0
         while True:
+            print("Crawling the next page...")
             await PlaywrightUtils.wait_for_element(page, "//div[contains(@class, 's-desktop-width-max')]")
             await PlaywrightUtils.scroll_to_bottom(page, delay=3)
 
             # Extract product links
             elems = page.locator("//span//a[@class='a-link-normal s-no-outline']")
             links = await elems.evaluate_all("elements => elements.map(e => e.href)")
-            self.productLinks.extend(links)
-            print(f"Collected {len(self.productLinks)} product links.")
-            print('Task sending notification...')
-            async with self.condition:
-                self.condition.notify()
-            
-            self.scrape_multiple_sources()
-
+            countLink += len(links)
+            print(f"Collected {countLink} product links.")
+            productListLink:ListTasks = {
+                                                "id": productName.replace(" ", "")+"_"+str(uuid.uuid1()),
+                                                "log_timestamp": datetime.datetime.now(),
+                                                "values": links,
+                                                "status": 100
+                                              } #100: pending, 202: processing, 200: done, 404: error
+            self.productLinks.append(productListLink)
+            await self.asyncManager.add_task(await self.scrape_multiple_sources(links))
+            coro = self.scrape_multiple_sources(links)
+            task = asyncio.create_task(coro)
+            await asyncio.sleep(0)
             # Attempt to navigate to the next page
             
-            next_btn = await PlaywrightUtils.wait_for_element(page, "a.s-pagination-item.s-pagination-next.s-pagination-button.s-pagination-button-accessibility.s-pagination-separator", attempts=1)
-            if next_btn is not None:
-                await next_btn.click()
+            nextBtn = await PlaywrightUtils.wait_for_element(page, "a.s-pagination-item.s-pagination-next.s-pagination-button.s-pagination-button-accessibility.s-pagination-separator", attempts=1)
+            if nextBtn is not None:
+                await nextBtn.click()
+                pageNo += 1
+                print("Pressed next page")
             else:
                 print("Reached the last page or an error occurred")
                 break
         await page.close()
+        #The first product is finished -> Continue to open another page to search the next product
         self.isNextProduct = True
 
     async def scrape_html_source(self, product_page, name, semaphore):
@@ -96,27 +114,47 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
             html = await page.content()
             with open(f'download/{name}.html', 'wb+') as f:
                 f.write(html.encode())
+            await asyncio.sleep(3)
             await page.close()
 
-    async def scrape_multiple_sources(self):
-        # Initialize Playwright and create a single browser and context
-        async with self.condition:
-            # wait to be notified
-            await self.condition.wait()
+    async def scrape_multiple_sources(self, productLinks):
         tasks = []
-        semaphore = asyncio.Semaphore(2)
-        for index, page_link in enumerate(self.productLinks):
+        for page_link in productLinks:
             # Pass the shared context to each task
-            tasks.append(self.scrape_html_source(page_link, index, semaphore))
-        self.productLinks.clear()
+            tasks.append(self.scrape_html_source(page_link, str(uuid.uuid1()), self.semaphore))
         # Run all tasks concurrently
         await asyncio.gather(*tasks)
+    
+    # def add_task(self, method, *args):
+    #     coro = method(*args)
+    #     self.asyncManager.add_task(coro)
+
+    # @staticmethod
+    # async def scan_new_tasks(tasks:List[ListTasks]):
+    #     loop = asyncio.get_event_loop()
+    #     while True:
+    #         for task in tasks:
+    #             if task["status"] == 100:
+    #                 loop.run_in_executor(None, input)
+    #                 asyncio.create_task(task["task"], task["values"])
+    #                 print(f"Added a new task id: {task["id"]}")
+    #         await asyncio.sleep(10)
+
+    # @staticmethod
+    # async def count_processing_tasks(tasks:List[ListTasks]):
+    #     loop = asyncio.get_event_loop()
+    #     while True:
+    #         for task in tasks:
+    #             if task["status"] == 100:
+    #                 loop.run_in_executor(None, input)
+    #                 asyncio.create_task(task["task"], task["values"])
+    #                 print(f"Added a new task id: {task["id"]}")
+    #         await asyncio.sleep(10)                
         
     async def activate_scraper(self):
         for product in self.productNames:
-            await asyncio.gather(self.get_all_products_links(product), self.scrape_multiple_sources())
-            
-    
+            await self.get_all_products_links(product)
+        
 
 class AmazonPyppetScraper(WebsitePyppetScraper):
     product_links = []
