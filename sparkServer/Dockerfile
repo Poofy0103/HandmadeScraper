@@ -15,6 +15,8 @@ RUN dnf update -y --allowerasing && \
       make \
       python3 \
       python3-pip \
+      iputils \
+      nc \
       procps \
       openssh-clients && \
     dnf clean all
