@@ -4,15 +4,22 @@ import seleniumwire.undetected_chromedriver as uc
 from seleniumwire.webdriver import ChromeOptions
 from pyppeteer import launch, browser, page
 from pyppeteer_stealth import stealth
-from playwright.async_api import async_playwright, Page, Browser
+from playwright.async_api import async_playwright, Page, BrowserContext
 
 class PlaywrightBaseScraper:
+    browser = None
+    main_context = None
     def __init__(self, headless=False, proxy=None):
-        self.browser = None
         self.headless = headless
         self.proxy = proxy
+
+    async def open_browser_session(self):
+        """Open a browser session/context with BrowserContext"""
+        session = await self.browser.new_context()
+        return session
         
     async def initialize_browser(self):
+        """Initialize a browser which can do tasks asynchronously"""
         playwright_context = await async_playwright().start()
         if self.proxy is not None:
             self.browser = await playwright_context.chromium.launch(headless=self.headless, proxy=self.proxy)
@@ -23,9 +30,10 @@ class PlaywrightBaseScraper:
             # }
         else:
             self.browser = await playwright_context.chromium.launch(headless=self.headless)
-
-    async def initialize_page(self, url) -> Page:
-        page = await self.browser.new_page()
+        self.main_context = await self.open_browser_session()
+        
+    async def initialize_page(self, context: BrowserContext, url) -> Page:
+        page = await context.new_page()
         await page.goto(url)
         return page
 

@@ -1,4 +1,4 @@
-from scraper.amazon_scraper_class import AmazonPWrightScraper
+from scraper.scraper_factory import ScraperFactory
 import asyncio
 
 # hostname, port_http, proxy_user, proxy_pass = api.get_proxy_info("zMbqYVRQFcnLRhBhHYVXDgxo2LDgInHu")
@@ -24,8 +24,9 @@ import asyncio
 # driver = webdriver.Chrome(seleniumwire_options=options)
 
 async def main():
-    scraper = AmazonPWrightScraper(hasSignIn=False, productNames=["Gaming Chair", "Gaming Headset"],account={"username": "diepbaothien10x@gmail.com", "password": "thien1"}, headless=False)
-    await scraper.activate_scraper()
+    scraper = ScraperFactory()
+    amazon_scraper = scraper.get_scraper(platform = "amazon", hasSignIn=False, productNames=["Gaming Chair"],account={"username": "diepbaothien10x@gmail.com", "password": "thien1"}, headless=False)
+    await amazon_scraper.activate_scraper()
 
 if __name__ == "__main__":
     asyncio.run(main())
