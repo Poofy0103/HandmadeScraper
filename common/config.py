@@ -12,6 +12,12 @@ def create_config():
     config['Kafka_Server'] = {'bootstrap_server': 'xxx.xxx.xxx.xxx',
                                 'port': 9092,
                                 'topic': 'scraper'}
+    config['Cloud_Services'] = {'account_file': 'xxxxxxxxxxxxxxxxxxx',
+                                'project_id': 'xxxxxxxxxxxxxxxxxxx',
+                                'bucket_name': "handmade-scraper",
+                                'raw_folder': 'amz_raw_html',
+                                'processed_folder': 'amz_processed_html'}
+    config['IAM_Rules'] = {'storage': 'storage.objectUser'}
 
     # Write the configuration to a file
     with open('config.ini', 'w') as configfile:
@@ -34,6 +40,12 @@ def read_config():
     bootstrap_server = config.get('Kafka_Server', 'bootstrap_server')
     kafka_port = config.getint('Kafka_Server', 'port')
     topic = config.get('Kafka_Server', 'topic')
+    iam_storage = config.get('IAM_Rules', 'storage')
+    project_id = config.get('Cloud_Services', 'project_id')
+    bucket_name = config.get('Cloud_Services', 'bucket_name')
+    raw_folder = config.get('Cloud_Services', 'raw_folder')
+    processed_folder = config.get('Cloud_Services', 'processed_folder')
+    account_file = config.get('Cloud_Services', 'account_file')
 
     # Return a dictionary with the retrieved values
     config_values = {
@@ -45,7 +57,13 @@ def read_config():
         'username': username,
         'bootstrap_server': bootstrap_server,
         'kafka_port': kafka_port,
-        'topic': topic
+        'topic': topic,
+        'project_id': project_id,
+        'bucket_name': bucket_name,
+        'raw_folder': raw_folder,
+        'processed_folder': processed_folder,
+        'account_file': account_file,
+        'iam': {"storage": iam_storage}
     }
 
     return config_values

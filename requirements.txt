@@ -9,3 +9,10 @@ google-auth-httplib2
 google-auth-oauthlib
 undetected_chromedriver
 pytest-playwright
+bs4
+kafka-python
+sshtunnel
+paramiko
+pyppeteer_stealth
+google-cloud-iam
+google-cloud-resource-manager
