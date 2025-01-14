@@ -8,7 +8,7 @@ from google.oauth2 import service_account
 import json
 from google.cloud import iam_admin_v1, resourcemanager_v3
 from google.iam.v1 import iam_policy_pb2, policy_pb2
-from config import read_config
+from .config import read_config
 
 class AsyncioManager:
     def __init__(self, maxSize = 0, queuesNum = 2):
@@ -99,7 +99,7 @@ class CloudManager:
 
     def upload_blob_from_memory(self, content):
         """Uploads a file to the bucket."""
-        destinationBlobName = f"{self.rawFolder}/{str(uuid.uuid4)}.html"
+        destinationBlobName = f"{self.rawFolder}/{str(uuid.uuid1())}.html"
         blob = self.bucket.blob(destinationBlobName)
         blob.upload_from_string(content)
 

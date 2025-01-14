@@ -5,7 +5,7 @@ from playwright.async_api import Page
 import asyncio
 from pyppeteer import launch, browser, page
 import uuid
-from common.utils import AsyncioManager
+from common.utils import AsyncioManager, CloudManager
 import threading
 from bs4 import BeautifulSoup, Comment
 
@@ -13,6 +13,7 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
     product_page = []
     isNextProduct = False
     condition = asyncio.Condition()
+    cloudManager = CloudManager()
 
     def __init__(self, productNames: list, homepage, hasSignIn = False, account=dict(username=None, apple=None), headless=False, proxy=None, maxQueueSize = 0, queuesNum = 2):
         super().__init__(headless, proxy)
@@ -104,11 +105,12 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
             else:
                 html = await page.content()
                 minimized_html = await self.minimize_html(html)
-                with open(f'download/{name}.html', "w", encoding="utf-8") as f:
-                    f.write(minimized_html)
+                self.cloudManager.upload_blob_from_memory(minimized_html)
                 await asyncio.sleep(1)
                 await page.close()
                 break
+    
+    
 
     @staticmethod
     async def minimize_html(pageContent):
