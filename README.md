@@ -5,7 +5,7 @@
 The diagram below illustrates the general flow of a web scraping system. This flow is designed based on the ELT pipeline approach.  
 **Note:** The official architecture of this project follows the ETL method, as the data volume is not large enough to require batch processing and adapts the near real-time requirement.
 
-![General flow of web scraping architecture](images\general-flow.png)
+![General flow of web scraping architecture](images/general-flow.png)
 
 ### Workflow Steps:
 1. **Homepage Crawling**:  
@@ -29,7 +29,7 @@ By using the above concept of a web scraping system, two architectures and tech 
 
 Based on the general architecture, the tech stacks for the on-premise approach are as follows:
 
-![On-Premise architecture diagram](images\on-premise.png)
+![On-Premise architecture diagram](images/on-premise.png)
 
 - **Web Scraper**: Playwright  
 - **Data Storage**: Local HDD  
@@ -47,7 +47,7 @@ Based on the general architecture, the tech stacks for the on-premise approach a
 
 Based on the general architecture, the tech stacks for the cloud-based approach are as follows:
 
-![Cloud-Based architecture diagram](images\cloud-based.png)
+![Cloud-Based architecture diagram](images/cloud-based.png)
 
 - **Web Scraper**: Playwright + Azure Function  
 - **Data Storage**: Azure Data Lake Gen 2  
