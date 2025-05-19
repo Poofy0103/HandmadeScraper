@@ -4,8 +4,12 @@ selenium
 asyncio
 ttp
 blinker==1.7.0
-google-api-python-client 
+google-api-python-client
+google-cloud-iam
 google-auth-httplib2 
 google-auth-oauthlib
 undetected_chromedriver
 pytest-playwright
+google-cloud-storage
+beautifulsoup4
+pyppeteer_stealth

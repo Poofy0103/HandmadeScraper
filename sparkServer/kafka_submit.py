@@ -11,12 +11,12 @@ def json_serializer(data):
 def kafka_submit(data):
     # GCP VM and Kafka settings
     config = read_config()
-    GCP_VM_IP = config["external_ip"]  # Public IP of your GCP VM
-    GCP_VM_USERNAME = config["username"]  # GCP VM username
-    PRIVATE_KEY_PATH = config["ssh_key"]  # Path to your SSH private key
-    KAFKA_LOCAL_PORT = config["kafka_port"]  # Local port for SSH tunnel to Kafka broker
-    KAFKA_TOPIC = config["topic"]
-    KAFKA_BOOTSTRAP_SERVER = config["bootstrap_server"]
+    GCP_VM_IP = config.external_ip  # Public IP of your GCP VM
+    GCP_VM_USERNAME = config.username  # GCP VM username
+    PRIVATE_KEY_PATH = config.ssh_key  # Path to your SSH private key
+    KAFKA_LOCAL_PORT = config.kafka_port  # Local port for SSH tunnel to Kafka broker
+    KAFKA_TOPIC = config.topic
+    KAFKA_BOOTSTRAP_SERVER = config.bootstrap_server
 
     # Set up an SSH tunnel to the GCP VM
     try:

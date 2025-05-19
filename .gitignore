@@ -1,6 +1,7 @@
+/venv
 /.venv
 /ca.crt
-/credentials.json
+/creds.json
 /qr_code.png
 /read_xml.py
 /token.json

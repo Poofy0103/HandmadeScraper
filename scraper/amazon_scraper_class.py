@@ -1,3 +1,7 @@
+import os
+
+from common.config import read_config
+from .utils.ggcloud import CloudClient
 from .web_scraper_class import WebsitePyppetScraper, WebsitePWrightScraper
 from common.pyppeteer_utils import PyppeteerUtils
 from common.playwright_utils import PlaywrightUtils
@@ -13,6 +17,8 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
     product_page = []
     isNextProduct = False
     condition = asyncio.Condition()
+    cloudClient = CloudClient()
+    config_values = read_config()
 
     def __init__(self, productNames: list, homepage, hasSignIn = False, account=dict(username=None, apple=None), headless=False, proxy=None, maxQueueSize = 0, queuesNum = 2):
         super().__init__(headless, proxy)
@@ -99,13 +105,15 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
         # await PlaywrightUtils.wait_for_element(page, ".a-size-large.product-title-word-break", attempts=3)
         while attempts > 0:
             if await page.title() in ["503 - Service Unavailable Error", "Sorry! Something went wrong!"]:
-                page.reload()
+                await page.reload()
+                await asyncio.sleep(3)
                 attempts -= 1
             else:
                 html = await page.content()
                 minimized_html = await self.minimize_html(html)
-                with open(f'download/{name}.html', "w", encoding="utf-8") as f:
-                    f.write(minimized_html)
+                # with open(f'download/{name}.html', "w", encoding="utf-8") as f:
+                #     f.write(minimized_html)
+                self.cloudClient.storage_client.upload_from_string(os.path.join(self.config_values.raw_bucket, "raw-html", name), minimized_html)
                 await asyncio.sleep(1)
                 await page.close()
                 break

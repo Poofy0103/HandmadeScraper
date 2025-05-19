@@ -34,7 +34,7 @@ class AsyncioManager:
             try:
                 await coro
             except Exception as e:
-                print("Failed to execute this task")
+                print(f"Failed to execute this task: {e}")
             self.runningTasks -= 1
             self.completedTasks += 1
             queue.task_done()
