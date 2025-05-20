@@ -8,6 +8,7 @@ import uuid
 from common.utils import AsyncioManager, CloudManager
 import threading
 from bs4 import BeautifulSoup, Comment
+from tqdm.asyncio import tqdm
 
 class AmazonPWrightScraper(WebsitePWrightScraper):
     product_page = []
@@ -105,7 +106,8 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
             else:
                 html = await page.content()
                 minimized_html = await self.minimize_html(html)
-                self.cloudManager.upload_blob_from_memory(minimized_html)
+                await PlaywrightUtils.scroll_to_bottom(page, delay=3)
+                await self.cloudManager.upload_blob_from_memory(minimized_html)
                 await asyncio.sleep(1)
                 await page.close()
                 break
@@ -135,7 +137,7 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
             # Pass the shared context to each task
             tasks.append(self.scrape_html_source(page_link, str(uuid.uuid1())))
         # Run all tasks concurrently
-        await asyncio.gather(*tasks)
+        await tqdm.gather(*tasks)
     
     async def activate_scraper(self):
         self.asyncManager.create_queue()

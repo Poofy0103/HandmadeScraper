@@ -9,6 +9,10 @@ import json
 from google.cloud import iam_admin_v1, resourcemanager_v3
 from google.iam.v1 import iam_policy_pb2, policy_pb2
 from .config import read_config
+import aiohttp
+from gcloud.aio.storage import Storage
+from typing import Coroutine
+from gcloud.aio.auth import Token
 
 class AsyncioManager:
     def __init__(self, maxSize = 0, queuesNum = 2):
@@ -36,11 +40,11 @@ class AsyncioManager:
     async def execute_task(self, queue: asyncio.Queue, index):
         print(f"Execute the queue {index}")
         while True:
-            coro = await queue.get()
+            coro: Coroutine = await queue.get()
             try:
                 await coro
             except Exception as e:
-                print("Failed to execute this task")
+                print(f"Failed to execute {coro.__name__}: {e}")
             self.runningTasks -= 1
             self.completedTasks += 1
             queue.task_done()
@@ -69,6 +73,8 @@ class CloudManager:
         self.listOfServices = {
                                     'storage': self.bucket
                                 }
+        self.verify_all_iam_policies()
+        
 
     def get_service_account_iam_policy(self, resource):
         policy = resource.get_iam_policy(requested_policy_version=3)
@@ -96,13 +102,19 @@ class CloudManager:
         for blob in blobs:
             print(blob)
         return blobs
+    
+    async def establish_storage_session(self):
+        self.token = Token(service_file=self.accountFile)
+        self.session = aiohttp.ClientSession()
+        self.asyncstorageClient = Storage(session=self.session, service_file=self.accountFile)
 
-    def upload_blob_from_memory(self, content):
+    async def upload_blob_from_memory(self, content):
         """Uploads a file to the bucket."""
         destinationBlobName = f"{self.rawFolder}/{str(uuid.uuid1())}.html"
-        blob = self.bucket.blob(destinationBlobName)
-        blob.upload_from_string(content)
-
+        print(
+            f"Start upload {destinationBlobName} to {self.rawFolder}."
+        )
+        await self.asyncstorageClient.upload(bucket=self.bucketName, object_name=destinationBlobName, file_data=content)
         print(
             f"{destinationBlobName} uploaded to {self.rawFolder}."
         )
