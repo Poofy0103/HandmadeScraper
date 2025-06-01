@@ -21,15 +21,7 @@ class PlaywrightBaseScraper:
     async def initialize_browser(self):
         """Initialize a browser which can do tasks asynchronously"""
         playwright_context = await async_playwright().start()
-        if self.proxy is not None:
-            self.browser = await playwright_context.chromium.launch(headless=self.headless, proxy=self.proxy)
-            # proxy = ({
-            #   "server": "http://myproxy.com:3128",
-            #   "username": "usr",
-            #   "password": "pwd"
-            # }
-        else:
-            self.browser = await playwright_context.chromium.launch(headless=self.headless)
+        self.browser = await playwright_context.chromium.launch(headless=self.headless, proxy=self.proxy)
         self.main_context = await self.open_browser_session()
         
     async def initialize_page(self, context: BrowserContext, url) -> Page:

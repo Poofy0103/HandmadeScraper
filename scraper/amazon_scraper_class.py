@@ -5,18 +5,24 @@ from playwright.async_api import Page
 import asyncio
 from pyppeteer import launch, browser, page
 import uuid
-from common.utils import AsyncioManager, CloudManager
+from common.asyncioManager import AsyncioManager
+from common.utils.ggcloud import CloudManager
 import threading
 from bs4 import BeautifulSoup, Comment
 from tqdm.asyncio import tqdm
+import os
+from common.config import read_config
+from rich.live import Live
+from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskProgressColumn
 
 class AmazonPWrightScraper(WebsitePWrightScraper):
     product_page = []
     isNextProduct = False
     condition = asyncio.Condition()
     cloudManager = CloudManager()
+    config_values = read_config()
 
-    def __init__(self, productNames: list, homepage, hasSignIn = False, account=dict(username=None, apple=None), headless=False, proxy=None, maxQueueSize = 0, queuesNum = 2):
+    def __init__(self, productNames: list, homepage, hasSignIn = False, account=dict(username=None, password=None), headless=False, proxy=None, maxQueueSize = 0, queuesNum = 2):
         super().__init__(headless, proxy)
         self.homepage = homepage
         self.account = account
@@ -24,66 +30,81 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
         self.hasSignIn = hasSignIn
         self.asyncManager = AsyncioManager(maxSize=maxQueueSize, queuesNum=queuesNum)
 
-    async def init_environment(self) -> Page:
-        await self.initialize_browser()
-        self.main_context = await self.open_browser_session()
-        page = await self.initialize_page(self.main_context, self.homepage)
-        return page
+    async def scraping_driver(self):
+        #Open another thread to monitor the task separately
+        progress = Progress(
+            TextColumn("[bold blue]{task.fields[label]}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeRemainingColumn()
+        )
+        with Live(progress, refresh_per_second=3) as live:
+            threading.Thread(target=self.asyncManager.monitor_task, args=(progress,), daemon=True).start()
 
-    async def sign_in(self, username, password) -> Page:
+            await self.initialize_browser()
+            self.search_page = await self.initialize_page(self.main_context, "https://www.google.com")
+            await self.search_page.goto(self.homepage)
+
+            if self.hasSignIn:
+                await self.__sign_in(self.sign_in(self.account["username"], self.account["password"]))
+            
+            for productName in self.productNames:
+                await self.__search_product(productName)
+                tasks = [self.asyncManager.start_all_queues(), self.__get_all_products_links()]
+                await asyncio.gather(*tasks)
+                # await self.__get_all_products_links()
+        
+
+    async def __sign_in(self, username, password):
         """Sign in to Amazon."""
-        page = await self.init_environment()
-        await PlaywrightUtils.wait_for_element(page, "#nav-link-accountList")
-        await page.locator("#nav-link-accountList").click()
+        await PlaywrightUtils.wait_for_element(self.search_page, "#nav-link-accountList")
+        await self.search_page.locator("#nav-link-accountList").click()
 
         # Enter email
-        await PlaywrightUtils.wait_for_element(page, "#ap_email")
-        await PlaywrightUtils.type_like_human(page, "#ap_email", username)
-        await page.locator("#continue.a-button-input").click()
+        await PlaywrightUtils.wait_for_element(self.search_page, "#ap_email")
+        await PlaywrightUtils.type_like_human(self.search_page, "#ap_email", username)
+        await self.search_page.locator("#continue.a-button-input").click()
 
         # Enter password
-        await PlaywrightUtils.wait_for_element(page, "#ap_password")
-        await PlaywrightUtils.type_like_human(page, "#ap_password", password)
-        await page.locator("#auth-signin-button").click()
-        await PlaywrightUtils.wait_for_page_load(page)
-        return page
+        await PlaywrightUtils.wait_for_element(self.search_page, "#ap_password")
+        await PlaywrightUtils.type_like_human(self.search_page, "#ap_password", password)
+        await self.search_page.locator("#auth-signin-button").click()
+        await PlaywrightUtils.wait_for_page_load(self.search_page)
 
-    
-    async def search_product(self, productName) -> Page:
+    async def __search_product(self, productName):
         """Search for a product."""
-        if self.hasSignIn and not self.isNextProduct:
-            page = await self.sign_in(self.account["username"], self.account["password"])
-        elif not self.hasSignIn and not self.isNextProduct:
-            page = await self.init_environment()
-        else:
-            page = await self.initialize_page(self.homepage)
-        await PlaywrightUtils.wait_for_element(page, "#twotabsearchtextbox")
-        await page.locator("#twotabsearchtextbox").fill("", timeout=15000)
-        await PlaywrightUtils.type_like_human(page, "#twotabsearchtextbox", productName)
-        await page.keyboard.press("Enter")
-        await PlaywrightUtils.wait_for_page_load(page)
-        return page
-    
-    async def get_all_products_links(self, productName: str):
+        # if self.hasSignIn and not self.isNextProduct:
+        #     page = await self.sign_in(self.account["username"], self.account["password"])
+        # elif not self.hasSignIn and not self.isNextProduct:
+        #     page = await self.init_environment()
+        # else:
+        #     page = await self.initialize_page(self.homepage)
+        await PlaywrightUtils.wait_for_element(self.search_page, "#twotabsearchtextbox")
+        await self.search_page.locator("#twotabsearchtextbox").fill("", timeout=15000)
+        await PlaywrightUtils.type_like_human(self.search_page, "#twotabsearchtextbox", productName)
+        await self.search_page.keyboard.press("Enter")
+        await PlaywrightUtils.wait_for_page_load(self.search_page)
+
+    async def __get_all_products_links(self):
         """Get all product links."""
-        page = await self.search_product(productName)
         pageNo = 1
         countLink = 0
         while True:
             print("Crawling the next page...")
-            await PlaywrightUtils.wait_for_element(page, "//div[contains(@class, 's-desktop-width-max')]")
-            await PlaywrightUtils.scroll_to_bottom(page, delay=3)
+            await PlaywrightUtils.wait_for_element(self.search_page, "//div[contains(@class, 's-desktop-width-max')]")
+            await PlaywrightUtils.scroll_to_bottom(self.search_page, delay=3)
 
             # Extract product links
-            elems = page.locator("//span//a[@class='a-link-normal s-no-outline']")
+            elems = self.search_page.locator("//span//a[@class='a-link-normal s-no-outline']")
             links = await elems.evaluate_all("elements => elements.map(e => e.href)")
             countLink += len(links)
             print(f"Collected {countLink} product links.")
             for link in links:
-                await self.asyncManager.add_task(self.scrape_html_source(link, str(uuid.uuid1())))
+                await self.asyncManager.add_task(self.__scrape_html_source(link, str(uuid.uuid1())))
+            # await self.asyncManager.start_all_queues()
             # Attempt to navigate to the next page
             
-            nextBtn = await PlaywrightUtils.wait_for_element(page, "a.s-pagination-item.s-pagination-next.s-pagination-button.s-pagination-button-accessibility.s-pagination-separator", attempts=3)
+            nextBtn = await PlaywrightUtils.wait_for_element(self.search_page, "a.s-pagination-item.s-pagination-next.s-pagination-button.s-pagination-button-accessibility.s-pagination-separator", attempts=3)
             if nextBtn is not None:
                 await nextBtn.click()
                 pageNo += 1
@@ -91,29 +112,29 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
             else:
                 print("Reached the last page or an error occurred")
                 break
-        await page.close()
-        #The first product is finished -> Continue to open another page to search the next product
-        self.isNextProduct = True
+        await self.search_page.close()
 
-    async def scrape_html_source(self, product_page, name):
+    async def __scrape_html_source(self, product_page, name):
         page = await self.initialize_page(self.main_context, product_page)
         attempts = 3
         # await PlaywrightUtils.wait_for_element(page, ".a-size-large.product-title-word-break", attempts=3)
         while attempts > 0:
-            if await page.title() in ["503 - Service Unavailable Error", "Sorry! Something went wrong!"]:
-                page.reload()
+            if await page.title() in ["503 - Service Unavailable Error", "Sorry! Something went wrong!", "Sorry! Something went wrong"]:
+                await asyncio.sleep(2)
+                await page.goto(product_page)
                 attempts -= 1
             else:
                 html = await page.content()
                 minimized_html = await self.minimize_html(html)
                 await PlaywrightUtils.scroll_to_bottom(page, delay=3)
-                await self.cloudManager.upload_blob_from_memory(minimized_html)
+                self.cloudManager.storage_client.upload_from_string(destination_path=os.path.join(self.config_values['bucket_name'], "raw-html", name),
+                                                                    data=minimized_html)
                 await asyncio.sleep(1)
                 await page.close()
                 break
+        else:
+            await page.close()
     
-    
-
     @staticmethod
     async def minimize_html(pageContent):
         soup = BeautifulSoup(pageContent, "html.parser")
@@ -135,17 +156,9 @@ class AmazonPWrightScraper(WebsitePWrightScraper):
         tasks = []
         for page_link in productLinks:
             # Pass the shared context to each task
-            tasks.append(self.scrape_html_source(page_link, str(uuid.uuid1())))
+            tasks.append(self.__scrape_html_source(page_link, str(uuid.uuid1())))
         # Run all tasks concurrently
         await tqdm.gather(*tasks)
-    
-    async def activate_scraper(self):
-        self.asyncManager.create_queue()
-        #Open another thread to monitor the task separately
-        threading.Thread(target=self.asyncManager.monitor_task, args=(3,)).start()
-        for product in self.productNames:
-            tasks = [self.asyncManager.start_all_queues(), self.get_all_products_links(product)]
-            await asyncio.gather(*tasks)
         
 
 class AmazonPyppetScraper(WebsitePyppetScraper):

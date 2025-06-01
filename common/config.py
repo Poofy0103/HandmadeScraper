@@ -1,4 +1,5 @@
 import configparser
+import os
 
 def create_config():
     config = configparser.ConfigParser()
@@ -46,6 +47,7 @@ def read_config():
     raw_folder = config.get('Cloud_Services', 'raw_folder')
     processed_folder = config.get('Cloud_Services', 'processed_folder')
     account_file = config.get('Cloud_Services', 'account_file')
+    root_dir = os.path.abspath(os.curdir)
 
     # Return a dictionary with the retrieved values
     config_values = {
@@ -63,7 +65,8 @@ def read_config():
         'raw_folder': raw_folder,
         'processed_folder': processed_folder,
         'account_file': account_file,
-        'iam': {"storage": iam_storage}
+        'iam': {"storage": iam_storage},
+        'root_dir': root_dir
     }
 
     return config_values

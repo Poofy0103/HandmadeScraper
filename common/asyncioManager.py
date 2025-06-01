@@ -1,7 +1,7 @@
 import asyncio
 from typing import List
 import uuid
-import time
+from time import sleep
 import datetime
 from google.cloud import storage
 from google.oauth2 import service_account
@@ -13,6 +13,24 @@ import aiohttp
 from gcloud.aio.storage import Storage
 from typing import Coroutine
 from gcloud.aio.auth import Token
+from tqdm.asyncio import tqdm
+from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskProgressColumn
+
+
+class CustomQueue(asyncio.Queue):
+    completedTasks = 0
+    def __init__(self, maxsize = 0):
+        super().__init__(maxsize)
+
+    async def execute_queue_task(self):
+        while True:
+            coro: Coroutine = await self.get()
+            try:
+                await coro
+            except Exception as e:
+                print(f"Failed to execute {coro.__name__}: {e}")
+            self.completedTasks += 1
+            self.task_done()
 
 class AsyncioManager:
     def __init__(self, maxSize = 0, queuesNum = 2):
@@ -20,43 +38,48 @@ class AsyncioManager:
         self.completedTasks = 0
         self.runningTasks = 0
         self.queuesNum = queuesNum
-        self.queues: List[asyncio.Queue] = []
+        self.queues: List[CustomQueue] = [CustomQueue(self.maxSize) for _ in range(self.queuesNum)]
         
-    async def add_task(self, coro):
+    async def add_task(self, coro: Coroutine):
         self.runningTasks += 1
         try:
             tasksInQueues = [tasks.qsize() for tasks in self.queues]
             print(tasksInQueues)
             idx_max = tasksInQueues.index(min(tasksInQueues))
             await self.queues[idx_max].put(coro)
-            print(f"[{str(datetime.datetime.now())}] Added a new task")
+            # print(f"[{str(datetime.datetime.now())}] Added a new task")
         except:
             print("Please add queues to the list")
-    
-    def create_queue(self):
-        for i in range(self.queuesNum):
-            self.queues.append(asyncio.Queue(self.maxSize))
         
-    async def execute_task(self, queue: asyncio.Queue, index):
-        print(f"Execute the queue {index}")
-        while True:
-            coro: Coroutine = await queue.get()
-            try:
-                await coro
-            except Exception as e:
-                print(f"Failed to execute {coro.__name__}: {e}")
-            self.runningTasks -= 1
-            self.completedTasks += 1
-            queue.task_done()
+    # async def execute_task(self, queue: asyncio.Queue, index):
+    #     while True:
+    #         coro: Coroutine = await queue.get()
+    #         try:
+    #             await coro
+    #         except Exception as e:
+    #             print(f"Failed to execute {coro.__name__}: {e}")
+    #         self.runningTasks -= 1
+    #         self.completedTasks += 1
+    #         queue.task_done()
     
     async def start_all_queues(self):
-        tasks = [self.execute_task(queue, index) for index, queue in enumerate(self.queues)]
+        tasks = [queue.execute_queue_task() for queue in self.queues]
         await asyncio.gather(*tasks)
     
-    def monitor_task(self, interval: int = 3):
+    def monitor_task(self, progress: Progress, interval: int = 3):
+        # while True:
+        #     print(f"[{str(datetime.datetime.now())}] {self.runningTasks} task(s) running. Completed: {self.completedTasks}")
+        #     time.sleep(interval)
+        task_ids = [
+            progress.add_task("", label=f"Queue {i+1}", total=0)
+            for i in range(self.queuesNum)
+        ]
         while True:
-            print(f"[{str(datetime.datetime.now())}] {self.runningTasks} task(s) running. Completed: {self.completedTasks}")
-            time.sleep(interval)
+            for i, queue in enumerate(self.queues):
+                total = queue.qsize() + queue.completedTasks
+                progress.update(task_ids[i], total=total, completed=queue.completedTasks)
+            sleep(0.2)
+
 
 class CloudManager:
     def __init__(self):
@@ -104,7 +127,7 @@ class CloudManager:
         return blobs
     
     async def establish_storage_session(self):
-        self.token = Token(service_file=self.accountFile)
+        self.token = Token(service_file=self.accountFile, scopes='full-control')
         self.session = aiohttp.ClientSession()
         self.asyncstorageClient = Storage(session=self.session, service_file=self.accountFile)
 
