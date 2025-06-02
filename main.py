@@ -25,7 +25,9 @@ import asyncio
 
 async def main():
     scraper = ScraperFactory()
-    amazon_scraper = scraper.get_scraper(platform = "amazon", hasSignIn=False, productNames=["Gaming Headset"],account={"username": "diepbaothien10x@gmail.com", "password": "thien1"}, headless=False)
+    # amazon_scraper = scraper.get_scraper(platform = "amazon", hasSignIn=False, productNames=["Gaming Headset"],account={"username": "diepbaothien10x@gmail.com", "password": "thien1"}, headless=False)
+    # await amazon_scraper.scraping_driver()
+    amazon_scraper = scraper.get_scraper(platform = "finance", hasSignIn=False, productNames=["DBC", "SAB", "VNM", "NTP", "BMP"], headless=True, timeRange='01-01-2021 - 31-12-2024')
     await amazon_scraper.scraping_driver()
 
 if __name__ == "__main__":

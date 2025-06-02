@@ -1,32 +1,22 @@
-from google.cloud import iam_admin_v1, resourcemanager_v3
-from google.iam.v1 import iam_policy_pb2, policy_pb2
-from common.config import read_config
-import aiofiles
-import aiohttp
-import asyncio
-from gcloud.aio.storage import Storage
-from tqdm.asyncio import tqdm
-from google.oauth2 import service_account
+import pandas as pd
+import json
 
-async def async_download_file(no):
-    config = read_config()
-    projectId = config['project_id']
-    accountFile = config['account_file']
-    bucketName = config['bucket_name']
-    rawFolder = config['raw_folder']
-    processedFolder = config['processed_folder']
-    session = aiohttp.ClientSession()
-    credentials = service_account.Credentials.from_service_account_file(accountFile)
-    storageClient = Storage(session=session, service_file=credentials)
-    bucket = await storageClient.get_bucket_metadata(bucket=bucketName)
-    print(bucket)
-    print(f"Start download file {no}")
-    status = await storageClient.download(bucket=bucketName, object_name="amz_raw_html/0061d01e-d2ac-11ef-b314-44850033dafa.html")
-    print(f"Finished download file {no}")
-    await session.close()
+def print_full(x):
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', 2000)
+    pd.set_option('display.float_format', '{:20,.2f}'.format)
+    pd.set_option('display.max_colwidth', None)
+    print(x)
+    pd.reset_option('display.max_rows')
+    pd.reset_option('display.max_columns')
+    pd.reset_option('display.width')
+    pd.reset_option('display.float_format')
+    pd.reset_option('display.max_colwidth')
 
-async def gather_tasks():
-    tasks = [async_download_file(no) for no in range(10)]
-    await tqdm.gather(*tasks)
+with open("scrape_results/VNM.json", "r", encoding="utf-8") as f:
+    data = json.load(f)
 
-asyncio.run(gather_tasks())
+df = pd.DataFrame(data)
+groupedByDF = pd.to_datetime(df['date'], format="%d/%m/%Y").sort_values(ascending=True)
+print_full(groupedByDF)
