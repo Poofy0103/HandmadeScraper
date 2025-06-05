@@ -75,7 +75,7 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
         # threading.Thread(target=self.__close_dialog, args=(), daemon=True).start()
         await self.__search_place()
         links = await self.__scan_matches()
-        for link in links[0:5]:
+        for link in links[0:29]:
             await self.asyncManager.add_task(self.__scrape_html_source(link))
         
         # print(pd.DataFrame.from_dict(self.result))
@@ -107,57 +107,6 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
         matches_list_element = self.page.locator(matches_list_selector)
         links = await matches_list_element.evaluate_all("elements => elements.map(e => e.href)")
         return links
-
-    async def __iterate_multiple_place_tables(self):
-        print(f"Start crawling place price data for place {self.place}")
-        current_page_index = 1
-        #Find max page for iteration
-        max_page_index = 1
-        all_pages_list = await self.page.locator("//div[@id='wraper-content-paging']/div/p").all_text_contents()
-        for i in all_pages_list:
-            if int(i) > max_page_index:
-                max_page_index = int(i)
-        
-        with tqdm(total = max_page_index - current_page_index) as pbar:
-            while current_page_index <= max_page_index:
-                await self.__iterate_place_table()
-                await self.page.locator("//div[@onclick='ownerCDL.handleChangePage(ownerCDL.pageIndex + 1)']").click()
-                current_page_index += 1
-                pbar.update(1)
-                await asyncio.sleep(0.5)
-
-    async def __iterate_place_table(self):
-        table_selector = "//tbody[@class='render-table-owner']"
-        await PlaywrightUtils.wait_for_element(self.page, table_selector)
-        table: Locator = self.page.locator(table_selector)
-        oddRows: Locator = table.locator("tr.oddOwner")
-        await self.__extract_row(oddRows)
-
-        #Sometimes page only has one row
-        if await self.page.wait_for_selector("tr.evenOwner", timeout=1000):
-            evenRows: Locator = table.locator("tr.evenOwner")
-            await self.__extract_row(evenRows)
-        
-
-    async def __extract_row(self, rows: Locator):
-        for row in await rows.all():
-            all_close_prices = await row.locator("td.owner_priceClose").all_text_contents()
-            all_transaction_volume = await row.locator("td.owner_gd_td").all_text_contents()
-            self.result.append(
-                {
-                    "date": await row.locator("td.owner_time").text_content(),
-                    "place_code": self.placeCode,
-                    "close_price": float(all_close_prices[0].replace(",","")) if all_close_prices[0] != "--" else None,
-                    "modified_close_price": float(all_close_prices[1].replace(",","")) if len(all_close_prices) > 1 and all_close_prices[1] != "--" else None,
-                    "transaction_volume": float(all_transaction_volume[0].replace(",",""))
-                }
-            )
-
-    # async def __close_dialog(self):
-    #     while attempt:
-    #         self.page.locator("//div[@role='dialog' and contains(@class, 'a9f1d9ba2c f67e3e9cde c99c8fdd99')]")
-    #         sleep(0.2)
-
         
 
     async def __scrape_html_source(self, product_page):
@@ -169,7 +118,7 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
         reviews_scorecard_selector = "//div[@id='js--hp-gallery-scorecard']"
         overall_review_selector = "//div[@data-testid='review-score-right-component']/div[contains(@class, 'f63b14ab7a')]"
         review_card_selector = "//div[@data-testid='review-card']/div/div/div[@aria-label='Review']"
-        next_button_selector = "button.de576f5064.b46cd7aad7.e26a59bb37.c295306d66.c7a901b0e7.aaf9b6e287.fe5e267e55"
+        next_button_selector = "//div[contains(@class,'d8026226a7')]/button[@aria-label='Next page']"
 
         place_name = await page.locator(place_name_selector).text_content()
         address = await page.locator(address_selector).text_content()
@@ -187,10 +136,10 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
         except:
             print('No facilities')
         
-        attempts = 1
+        attempts = 3
         comment_result = []
         try:
-            if await PlaywrightUtils.wait_for_element_no_attempt(page, reviews_scorecard_selector, timeout=5000):
+            if await PlaywrightUtils.wait_for_element_no_attempt(page, reviews_scorecard_selector, timeout=15000):
                 await page.locator(reviews_scorecard_selector).click()
                 await asyncio.sleep(3)
                 await page.locator("//div[@role='dialog']/div/div[@class='c1cb99b7ca']").evaluate("e => e.scrollTop += 1200")
@@ -202,20 +151,21 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
                         break
                     for card in await review_cards.all():
                         comment_title_locator: Locator = card.locator("//h4[@data-testid='review-title']")
-                        comment_title = await comment_title_locator.text_content()
+                        comment_title = await comment_title_locator.text_content(timeout=3000)
                         comment_score_locator: Locator = card.locator("//div[@data-testid='review-score']/div/div[@aria-hidden='true']")
-                        comment_score = await comment_score_locator.text_content()
+                        comment_score = await comment_score_locator.text_content(timeout=3000)
                         positive_comment = None
                         negative_comment = None
-                        try:
-                            positive_comment_locator = page.locator("//div[@data-testid='review-positive-text']/div/div[@class='ea9fc823c1']/span")
-                            positive_comment = await positive_comment_locator.text_content()
-                        except:
-                            print('No pos comment')
                         
                         try:
-                            negative_comment_locator = page.locator("//div[@data-testid='review-negative-text']/div/div[@class='ea9fc823c1']/span")
-                            negative_comment = await negative_comment_locator.text_content()
+                            positive_comment_locator = card.locator("//div[@data-testid='review-positive-text']/div/div[@class='ea9fc823c1']/div/span")
+                            positive_comment = await positive_comment_locator.text_content(timeout=3000)
+                        except Exception as e:
+                            print(f'No pos comment: {e}')
+                        
+                        try:
+                            negative_comment_locator = card.locator("//div[@data-testid='review-negative-text']/div/div[@class='ea9fc823c1']/div/span")
+                            negative_comment = await negative_comment_locator.text_content(timeout=3000)
                         except:
                             print('No pos comment')
                         comment_result.append(
@@ -229,7 +179,7 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
                         print(comment_result)
                     await page.locator(next_button_selector).click()
                     attempts -= 1
-                    await page.locator("//div[@role='dialog']/div/div[@class='c1cb99b7ca']").evaluate("e => e.scrollTop += 100")
+                    await page.locator("//div[@role='dialog']/div/div[@class='c1cb99b7ca']").evaluate("e => e.scrollTop += 1200")
         finally:
             await page.close()
             self.result.append(
