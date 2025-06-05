@@ -15,6 +15,10 @@ import json
 from common.config import read_config
 from rich.live import Live
 from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskProgressColumn
+import aiofiles
+import json
+
+
 
 class TravellingScraperClass(WebsitePWrightScraper):
     product_page = []
@@ -73,8 +77,8 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
         links = await self.__scan_matches()
         for link in links:
             await self.asyncManager.add_task(self.__scrape_html_source(link))
-        with open(f"scrape_results/transaction/{self.place}.json", "w+", encoding="utf-8") as f:
-            json.dump(self.result, f, ensure_ascii=False, indent=4)
+        async with aiofiles.open(f"scrape_results/{self.place}.json", "w", encoding="utf-8") as f:
+            await f.write(json.dumps(self.result, ensure_ascii=False, indent=4))
         # print(pd.DataFrame.from_dict(self.result))
         # self.db.submit_placeprice_data(self.place, self.result)
         # self.db.close_connection()
