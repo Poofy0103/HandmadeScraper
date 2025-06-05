@@ -31,7 +31,7 @@ async def main():
     # await news_scraper.scraping_driver()
     # macro_scraper = scraper.get_scraper(platform = "macro", hasSignIn=False, headless=False, timeRange="01/01/2019 - 31/12/2024")
     # await macro_scraper.scraping_driver()
-    travelling_scraper = scraper.get_scraper(platform = "travelling", hasSignIn=False, stockCodes=["Ho Chi Minh city"], headless=False, queuesNum=5)
+    travelling_scraper = scraper.get_scraper(platform = "travelling", hasSignIn=False, stockCodes=["Ha Noi city"], scroll_page_attempt=10, headless=False, queuesNum=5)
     await travelling_scraper.scraping_driver()
 
 if __name__ == "__main__":
