@@ -7,8 +7,6 @@ import threading
 from bs4 import BeautifulSoup, Comment
 from tqdm.asyncio import tqdm
 import os
-from common.config import read_config
-from common.db import FinanceDatabase
 import pandas as pd
 import json
 
@@ -35,17 +33,11 @@ class TravellingScraperClassCopy(WebsitePWrightScraper):
         
 
 class TravellingScraperWorker(PlaywrightBaseScraper):
-    config_values = read_config()
     def __init__(self, main_context: BrowserContext, homepage: str, place: str, timeRange: str):
         self.main_context = main_context
         self.homepage = homepage
         self.place = place
         self.timeRange = timeRange
-        self.db = FinanceDatabase(self.config_values['finance_db_username'],
-                     self.config_values['finance_db_password'],
-                     self.config_values['finance_db_server'],
-                     self.config_values['finance_db_port'],
-                     self.config_values['finance_db_schema'])
         self.result = []
 
     async def scraping_task(self):
