@@ -172,7 +172,6 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
         review_card_selector = "//div[@data-testid='review-card']/div/div/div[@aria-label='Review']"
         next_button_selector = "button.de576f5064.b46cd7aad7.e26a59bb37.c295306d66.c7a901b0e7.aaf9b6e287.fe5e267e55']"
 
-        await PlaywrightUtils.wait_for_element(page, reviews_scorecard_selector, attempts=3)
         place_name = await page.locator(place_name_selector).text_content()
         address = await page.locator(address_selector).text_content()
         facilities = None
