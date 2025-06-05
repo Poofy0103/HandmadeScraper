@@ -75,7 +75,7 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
         # threading.Thread(target=self.__close_dialog, args=(), daemon=True).start()
         await self.__search_place()
         links = await self.__scan_matches()
-        for link in links:
+        for link in links[0:5]:
             await self.asyncManager.add_task(self.__scrape_html_source(link))
         async with aiofiles.open(f"scrape_results/{self.place}.json", "w", encoding="utf-8") as f:
             await f.write(json.dumps(self.result, ensure_ascii=False, indent=4))
@@ -170,7 +170,7 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
         reviews_scorecard_selector = "//div[@id='js--hp-gallery-scorecard']"
         overall_review_selector = "//div[@data-testid='review-score-right-component']/div[contains(@class, 'f63b14ab7a')]"
         review_card_selector = "//div[@data-testid='review-card']/div/div/div[@aria-label='Review']"
-        next_button_selector = "button.de576f5064.b46cd7aad7.e26a59bb37.c295306d66.c7a901b0e7.aaf9b6e287.fe5e267e55']"
+        next_button_selector = "button.de576f5064.b46cd7aad7.e26a59bb37.c295306d66.c7a901b0e7.aaf9b6e287.fe5e267e55"
 
         place_name = await page.locator(place_name_selector).text_content()
         address = await page.locator(address_selector).text_content()
@@ -188,7 +188,7 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
         except:
             print('No facilities')
         
-        attempts = 3
+        attempts = 1
         comment_result = []
         try:
             if await PlaywrightUtils.wait_for_element_no_attempt(page, reviews_scorecard_selector, timeout=5000):
@@ -231,7 +231,6 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
                     await page.locator(next_button_selector).click()
                     attempts -= 1
                     await page.locator("//div[@role='dialog']/div/div[@class='c1cb99b7ca']").evaluate("e => e.scrollTop += 100")
-                    await asyncio.sleep(0.5)
         finally:
             await page.close()
             self.result.append(
