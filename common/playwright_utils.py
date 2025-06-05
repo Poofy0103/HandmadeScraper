@@ -23,15 +23,21 @@ class PlaywrightUtils:
         while attempts > 1:
             try:
                 ele = await page.wait_for_selector(selector, timeout=timeout)
-                await asyncio.sleep(3)
                 return ele
             except Exception as e:
                 print(f"Cannot find {selector}. Reload and try again!!")
                 await page.reload()
                 attempts -= 1
-                return None
         else:
-            raise(f"Attempts are exceeded: {e}")
+            return None
+    
+    async def wait_for_element_no_attempt(page: Page, selector, timeout=10000) -> ElementHandle:
+        """Wait for an element to appear on the page."""
+        try:
+            ele = await page.wait_for_selector(selector, timeout=timeout)
+            return True
+        except:
+            return False
 
     @staticmethod
     # Wait for the full page to load

@@ -26,7 +26,7 @@ class PlaywrightBaseScraper:
         
     async def initialize_page(self, context: BrowserContext, url) -> Page:
         page = await context.new_page()
-        await page.goto(url)
+        await page.goto(url, timeout=0)
         return page
 
     async def close_browser(self):

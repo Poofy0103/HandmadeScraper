@@ -48,6 +48,11 @@ def read_config():
     processed_folder = config.get('Cloud_Services', 'processed_folder')
     account_file = config.get('Cloud_Services', 'account_file')
     root_dir = os.path.abspath(os.curdir)
+    finance_db_server = config.get('Finance_DB', 'server')
+    finance_db_port = config.get('Finance_DB', 'port')
+    finance_db_schema = config.get('Finance_DB', 'schema')
+    finance_db_username = config.get('Finance_DB', 'username')
+    finance_db_password = config.get('Finance_DB', 'password')
 
     # Return a dictionary with the retrieved values
     config_values = {
@@ -66,7 +71,12 @@ def read_config():
         'processed_folder': processed_folder,
         'account_file': account_file,
         'iam': {"storage": iam_storage},
-        'root_dir': root_dir
+        'root_dir': root_dir,
+        'finance_db_server': finance_db_server,
+        'finance_db_port': finance_db_port,
+        'finance_db_schema': finance_db_schema,
+        'finance_db_username': finance_db_username,
+        'finance_db_password': finance_db_password
     }
 
     return config_values

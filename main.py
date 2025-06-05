@@ -25,10 +25,14 @@ import asyncio
 
 async def main():
     scraper = ScraperFactory()
-    # amazon_scraper = scraper.get_scraper(platform = "amazon", hasSignIn=False, productNames=["Gaming Headset"],account={"username": "diepbaothien10x@gmail.com", "password": "thien1"}, headless=False)
-    # await amazon_scraper.scraping_driver()
-    amazon_scraper = scraper.get_scraper(platform = "finance", hasSignIn=False, productNames=["DBC", "SAB", "VNM", "NTP", "BMP"], headless=True, timeRange='01-01-2021 - 31-12-2024')
-    await amazon_scraper.scraping_driver()
+    # finance_scraper = scraper.get_scraper(platform = "finance", hasSignIn=False, stockCodes=["DBC", "SAB", "VNM", "NTP", "BMP"], headless=False, timeRange='01-01-2019 - 31-12-2024')
+    # await finance_scraper.scraping_driver()
+    # news_scraper = scraper.get_scraper(platform = "news", hasSignIn=False, stockCodes=["DBC", "SAB", "VNM", "NTP", "BMP"], headless=False, timeRange="01/01/2019 - 31/12/2024")
+    # await news_scraper.scraping_driver()
+    # macro_scraper = scraper.get_scraper(platform = "macro", hasSignIn=False, headless=False, timeRange="01/01/2019 - 31/12/2024")
+    # await macro_scraper.scraping_driver()
+    travelling_scraper = scraper.get_scraper(platform = "travelling", hasSignIn=False, stockCodes=["Ho Chi Minh city"], headless=False, queuesNum=5)
+    await travelling_scraper.scraping_driver()
 
 if __name__ == "__main__":
     asyncio.run(main())
