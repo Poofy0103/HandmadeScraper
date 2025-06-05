@@ -77,8 +77,7 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
         links = await self.__scan_matches()
         for link in links[0:5]:
             await self.asyncManager.add_task(self.__scrape_html_source(link))
-        async with aiofiles.open(f"scrape_results/{self.place}.json", "w", encoding="utf-8") as f:
-            await f.write(json.dumps(self.result, ensure_ascii=False, indent=4))
+        
         # print(pd.DataFrame.from_dict(self.result))
         # self.db.submit_placeprice_data(self.place, self.result)
         # self.db.close_connection()
@@ -242,4 +241,6 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
                         "comments": comment_result
                     }
                 )
+            async with aiofiles.open(f"scrape_results/{self.place}_{str(uuid.uuid1())}.json", "w", encoding="utf-8") as f:
+                await f.write(json.dumps(self.result, ensure_ascii=False, indent=4))
             print(self.result)
