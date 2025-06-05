@@ -163,80 +163,78 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
 
     async def __scrape_html_source(self, product_page):
         page = await self.initialize_page(self.main_context, product_page)
+        await asyncio.sleep(1)
+        place_name_selector = "//div[@id='wrap-hotelpage-top']/div/div/div/h2"
+        address_selector = "//div[@data-testid='PropertyHeaderAddressDesktop-wrapper']/div/span/button/div"
+        facilities_selector = "//div[@data-testid='property-most-popular-facilities-wrapper']/div/ul"
+        reviews_scorecard_selector = "//div[@id='js--hp-gallery-scorecard']"
+        overall_review_selector = "//div[@data-testid='review-score-right-component']/div[contains(@class, 'f63b14ab7a')]"
+        review_card_selector = "//div[@data-testid='review-card']/div/div/div[@aria-label='Review']"
+        next_button_selector = "button.de576f5064.b46cd7aad7.e26a59bb37.c295306d66.c7a901b0e7.aaf9b6e287.fe5e267e55']"
+
+        await PlaywrightUtils.wait_for_element(page, reviews_scorecard_selector, attempts=3)
+        place_name = await page.locator(place_name_selector).text_content()
+        address = await page.locator(address_selector).text_content()
+        facilities = None
+        overall_review = None
         try:
-            await asyncio.sleep(1)
-            place_name_selector = "//div[@id='wrap-hotelpage-top']/div/div/div/h2"
-            address_selector = "//div[@data-testid='PropertyHeaderAddressDesktop-wrapper']/div/span/button/div"
-            facilities_selector = "//div[@data-testid='property-most-popular-facilities-wrapper']/div/ul"
-            reviews_scorecard_selector = "//div[@id='js--hp-gallery-scorecard']"
-            overall_review_selector = "//div[@data-testid='review-score-right-component']/div[contains(@class, 'f63b14ab7a')]"
-            review_card_selector = "//div[@data-testid='review-card']/div/div/div[@aria-label='Review']"
-            next_button_selector = "button.de576f5064.b46cd7aad7.e26a59bb37.c295306d66.c7a901b0e7.aaf9b6e287.fe5e267e55']"
+            raw_facilities = await page.locator(facilities_selector).all_text_contents()
+            facilities = ",".join(raw_facilities)
+        except:
+            print('No facilities')
 
-            await PlaywrightUtils.wait_for_element(page, reviews_scorecard_selector, attempts=3)
-            place_name = await page.locator(place_name_selector).text_content()
-            address = await page.locator(address_selector).text_content()
-            facilities = None
-            overall_review = None
-            try:
-                raw_facilities = await page.locator(facilities_selector).all_text_contents()
-                facilities = ",".join(raw_facilities)
-            except:
-                print('No facilities')
-
-            try:
-                overall_review = await page.locator(overall_review_selector).text_content()
-                overall_review = float(overall_review)
-            except:
-                print('No facilities')
-            await page.locator(reviews_scorecard_selector).click()
-            await asyncio.sleep(3)
-            await page.locator("//div[@role='dialog']/div/div[@class='c1cb99b7ca']").evaluate("e => e.scrollTop += 1200")
-            attempts = 3
-            comment_result = []
+        try:
+            overall_review = await page.locator(overall_review_selector).text_content()
+            overall_review = float(overall_review)
+        except:
+            print('No facilities')
+        await page.locator(reviews_scorecard_selector).click()
+        await asyncio.sleep(3)
+        await page.locator("//div[@role='dialog']/div/div[@class='c1cb99b7ca']").evaluate("e => e.scrollTop += 1200")
+        attempts = 3
+        comment_result = []
+        try:
             if await PlaywrightUtils.wait_for_element_no_attempt(page, reviews_scorecard_selector, timeout=5000):
                 while attempts > 0:
-                    try:
-                        try: 
-                            review_cards: Locator = page.locator(review_card_selector)
-                        except:
-                            print('No reviews')
-                            break
-                        for card in await review_cards.all():
-                            comment_title_locator: Locator = card.locator("//h4[@data-testid='review-title']")
-                            comment_title = await comment_title_locator.text_content()
-                            comment_score_locator: Locator = card.locator("//div[@data-testid='review-score']/div/div[@aria-hidden='true']")
-                            comment_score = await comment_score_locator.text_content()
-                            positive_comment = None
-                            negative_comment = None
-                            try:
-                                positive_comment_locator = page.locator("//div[@data-testid='review-positive-text']/div/div[@class='ea9fc823c1']/span")
-                                positive_comment = await positive_comment_locator.text_content()
-                            except:
-                                print('No pos comment')
-                            
-                            try:
-                                negative_comment_locator = page.locator("//div[@data-testid='review-negative-text']/div/div[@class='ea9fc823c1']/span")
-                                negative_comment = await negative_comment_locator.text_content()
-                            except:
-                                print('No pos comment')
-                            comment_result.append(
-                                {
-                                    "comment_title": comment_title,
-                                    "comment_score": comment_score,
-                                    "positive_comment": positive_comment,
-                                    "negative_comment": negative_comment
-                                }
-                            )
-                            print(comment_result)
-                        await page.locator(next_button_selector).click()
-                        attempts -= 1
-                        await page.locator("//div[@role='dialog']/div/div[@class='c1cb99b7ca']").evaluate("e => e.scrollTop += 100")
-                        await asyncio.sleep(0.5)
-                        await page.close()
+                    try: 
+                        review_cards: Locator = page.locator(review_card_selector)
                     except:
-                        await page.close()
-                self.result.append(
+                        print('No reviews')
+                        break
+                    for card in await review_cards.all():
+                        comment_title_locator: Locator = card.locator("//h4[@data-testid='review-title']")
+                        comment_title = await comment_title_locator.text_content()
+                        comment_score_locator: Locator = card.locator("//div[@data-testid='review-score']/div/div[@aria-hidden='true']")
+                        comment_score = await comment_score_locator.text_content()
+                        positive_comment = None
+                        negative_comment = None
+                        try:
+                            positive_comment_locator = page.locator("//div[@data-testid='review-positive-text']/div/div[@class='ea9fc823c1']/span")
+                            positive_comment = await positive_comment_locator.text_content()
+                        except:
+                            print('No pos comment')
+                        
+                        try:
+                            negative_comment_locator = page.locator("//div[@data-testid='review-negative-text']/div/div[@class='ea9fc823c1']/span")
+                            negative_comment = await negative_comment_locator.text_content()
+                        except:
+                            print('No pos comment')
+                        comment_result.append(
+                            {
+                                "comment_title": comment_title,
+                                "comment_score": comment_score,
+                                "positive_comment": positive_comment,
+                                "negative_comment": negative_comment
+                            }
+                        )
+                        print(comment_result)
+                    await page.locator(next_button_selector).click()
+                    attempts -= 1
+                    await page.locator("//div[@role='dialog']/div/div[@class='c1cb99b7ca']").evaluate("e => e.scrollTop += 100")
+                    await asyncio.sleep(0.5)
+        finally:
+            await page.close()
+            self.result.append(
                     {
                         "place_name": place_name,
                         "address": address,
@@ -246,5 +244,3 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
                     }
                 )
             print(self.result)
-        except:
-            await page.close()        
