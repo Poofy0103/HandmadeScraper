@@ -27,12 +27,13 @@ class TravellingScraperClass(WebsitePWrightScraper):
     # cloudManager = CloudManager()
     # config_values = read_config()
 
-    def __init__(self, productNames: list, homepage, hasSignIn = False, account=dict(username=None, password=None), headless=False, proxy=None, maxQueueSize = 0, queuesNum = 2):
+    def __init__(self, productNames: list, homepage, scroll_page_attempt: int, hasSignIn = False, account=dict(username=None, password=None), headless=False, proxy=None, maxQueueSize = 0, queuesNum = 2):
         super().__init__(headless, proxy)
         self.homepage = homepage
         self.account = account
         self.productNames = productNames
         self.hasSignIn = hasSignIn
+        self.scroll_page_attempt = scroll_page_attempt
         self.asyncManager = AsyncioManager(maxSize=maxQueueSize, queuesNum=queuesNum)
 
     async def scraping_driver(self):
@@ -47,7 +48,7 @@ class TravellingScraperClass(WebsitePWrightScraper):
             threading.Thread(target=self.asyncManager.monitor_task, args=(progress,), daemon=True).start()
 
             await self.initialize_browser()
-            workers = [TravellingScraperWorker(self.main_context, self.homepage, place, self.asyncManager) for place in self.productNames]
+            workers = [TravellingScraperWorker(self.main_context, self.homepage, place, self.asyncManager, self.scroll_page_attempt) for place in self.productNames]
             tasks = [worker.scraping_task() for worker in workers]
             tasks.append(self.asyncManager.start_all_queues())
             await asyncio.gather(*tasks)
@@ -63,11 +64,12 @@ class TravellingScraperClass(WebsitePWrightScraper):
 
 class TravellingScraperWorker(PlaywrightBaseScraper):
     # config_values = read_config()
-    def __init__(self, main_context: BrowserContext, homepage: str, place: str, asyncManager: AsyncioManager):
+    def __init__(self, main_context: BrowserContext, homepage: str, place: str, asyncManager: AsyncioManager, scroll_page_attempt: int):
         self.main_context = main_context
         self.homepage = homepage
         self.place = place
         self.asyncManager = asyncManager
+        self.scroll_page_attempt = scroll_page_attempt
         self.result = []
 
     async def scraping_task(self):
@@ -75,7 +77,7 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
         # threading.Thread(target=self.__close_dialog, args=(), daemon=True).start()
         await self.__search_place()
         links = await self.__scan_matches()
-        for link in links[0:29]:
+        for link in links:
             await self.asyncManager.add_task(self.__scrape_html_source(link))
         
         # print(pd.DataFrame.from_dict(self.result))
@@ -98,12 +100,11 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
     async def __scan_matches(self):
         load_more_button_selector = "button.de576f5064.b46cd7aad7.d0a01e3d83.dda427e6b5.bbf83acb81.a0ddd706cc"
         matches_list_selector = "//div[@role='list']/div[@role='listitem']/div/div/div/div/div/div/div/div/h3/a"
-        attempts = 3
-        while attempts > 0:
+        while self.scroll_page_attempt > 0:
             await PlaywrightUtils.scroll_to_bottom(self.page, delay=5)
             if await PlaywrightUtils.wait_for_element_no_attempt(self.page, load_more_button_selector, 3000):
                 await self.page.locator(load_more_button_selector).click()
-            attempts -= 1
+            self.scroll_page_attempt -= 1
         matches_list_element = self.page.locator(matches_list_selector)
         links = await matches_list_element.evaluate_all("elements => elements.map(e => e.href)")
         return links
@@ -136,7 +137,7 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
         except:
             print('No facilities')
         
-        attempts = 3
+        attempts = 5
         comment_result = []
         try:
             if await PlaywrightUtils.wait_for_element_no_attempt(page, reviews_scorecard_selector, timeout=15000):
@@ -191,6 +192,6 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
                         "comments": comment_result
                     }
                 )
-            async with aiofiles.open(f"scrape_results/{self.place}_{str(uuid.uuid1())}.json", "w", encoding="utf-8") as f:
+            async with aiofiles.open(f"scrape_results/{self.place}.json", "w", encoding="utf-8") as f:
                 await f.write(json.dumps(self.result, ensure_ascii=False, indent=4))
             print(self.result)
