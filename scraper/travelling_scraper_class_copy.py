@@ -187,13 +187,14 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
             overall_review = float(overall_review)
         except:
             print('No facilities')
-        await page.locator(reviews_scorecard_selector).click()
-        await asyncio.sleep(3)
-        await page.locator("//div[@role='dialog']/div/div[@class='c1cb99b7ca']").evaluate("e => e.scrollTop += 1200")
+        
         attempts = 3
         comment_result = []
         try:
             if await PlaywrightUtils.wait_for_element_no_attempt(page, reviews_scorecard_selector, timeout=5000):
+                await page.locator(reviews_scorecard_selector).click()
+                await asyncio.sleep(3)
+                await page.locator("//div[@role='dialog']/div/div[@class='c1cb99b7ca']").evaluate("e => e.scrollTop += 1200")
                 while attempts > 0:
                     try: 
                         review_cards: Locator = page.locator(review_card_selector)
