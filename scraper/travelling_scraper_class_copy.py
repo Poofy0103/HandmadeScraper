@@ -158,6 +158,7 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
         
 
     async def __scrape_html_source(self, product_page):
+        page = await self.initialize_page(self.main_context, product_page)
         try:
             await asyncio.sleep(1)
             place_name_selector = "//div[@id='wrap-hotelpage-top']/div/div/div/h2"
@@ -168,7 +169,6 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
             review_card_selector = "//div[@data-testid='review-card']/div/div/div[@aria-label='Review']"
             next_button_selector = "button.de576f5064.b46cd7aad7.e26a59bb37.c295306d66.c7a901b0e7.aaf9b6e287.fe5e267e55']"
 
-            page = await self.initialize_page(self.main_context, product_page)
             await PlaywrightUtils.wait_for_element(page, reviews_scorecard_selector, attempts=3)
             place_name = await page.locator(place_name_selector).text_content()
             address = await page.locator(address_selector).text_content()
@@ -242,4 +242,5 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
                     }
                 )
             print(self.result)
-        
+        except:
+            await page.close()        
