@@ -114,7 +114,7 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
         page = await self.initialize_page(self.main_context, product_page)
         await asyncio.sleep(1)
         place_name_selector = "//div[@id='wrap-hotelpage-top']/div/div/div/h2"
-        address_selector = "//div[@data-testid='PropertyHeaderAddressDesktop-wrapper']/div/span/button/div"
+        address_selector = "//div[@data-testid='PropertyHeaderAddressDesktop-wrapper']/div[@class='b6937ecb12']/span[@class='a297f43545']/button/div"
         facilities_selector = "//div[@data-testid='property-most-popular-facilities-wrapper']/div/ul"
         reviews_scorecard_selector = "//div[@id='js--hp-gallery-scorecard']"
         overall_review_selector = "//div[@data-testid='review-score-right-component']/div[contains(@class, 'f63b14ab7a')]"
@@ -152,21 +152,21 @@ class TravellingScraperWorker(PlaywrightBaseScraper):
                         break
                     for card in await review_cards.all():
                         comment_title_locator: Locator = card.locator("//h4[@data-testid='review-title']")
-                        comment_title = await comment_title_locator.text_content(timeout=3000)
+                        comment_title = await comment_title_locator.text_content(timeout=6000)
                         comment_score_locator: Locator = card.locator("//div[@data-testid='review-score']/div/div[@aria-hidden='true']")
-                        comment_score = await comment_score_locator.text_content(timeout=3000)
+                        comment_score = await comment_score_locator.text_content(timeout=6000)
                         positive_comment = None
                         negative_comment = None
                         
                         try:
                             positive_comment_locator = card.locator("//div[@data-testid='review-positive-text']/div/div[@class='ea9fc823c1']/div/span")
-                            positive_comment = await positive_comment_locator.text_content(timeout=3000)
+                            positive_comment = await positive_comment_locator.text_content(timeout=6000)
                         except Exception as e:
                             print(f'No pos comment: {e}')
                         
                         try:
                             negative_comment_locator = card.locator("//div[@data-testid='review-negative-text']/div/div[@class='ea9fc823c1']/div/span")
-                            negative_comment = await negative_comment_locator.text_content(timeout=3000)
+                            negative_comment = await negative_comment_locator.text_content(timeout=6000)
                         except:
                             print('No pos comment')
                         comment_result.append(
